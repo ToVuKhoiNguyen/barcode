@@ -1,57 +1,80 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hóa Đơn</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KyZXEJjRDEpH5bF41p3fIAUqjp1yMhtusSyayGHn8jkkBseMLgSx3tr1B0jKHm4H" crossorigin="anonymous">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js" integrity="sha384-pzjw8f+ua7Kw1TIq0oF8jEJlO5yA59s3S7MtfDs29ruxBzUPg6Bk6Xbcf5L5Zb6x" crossorigin="anonymous"></script>
+    <title>Hóa Đơn Trực Tuyến</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; font-family: Arial, sans-serif; }
+        .card { box-shadow: 0 0 20px rgba(0,0,0,0.1); border-radius: 12px; }
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px dashed #ccc;
+        }
+        .item-name { font-weight: bold; color: #007bff; }
+        .item-detail small { color: #6c757d; }
+        .total-row {
+            font-size: 20px;
+            font-weight: bold;
+            color: #dc3545;
+            text-align: right;
+            margin-top: 15px;
+        }
+    </style>
 </head>
-<body class="bg-light">
-    <div class="container my-5">
-        <h1 class="text-center mb-4">Hóa Đơn Thời Gian Thực</h1>
-
-        <div class="card">
-            <div class="card-header">
-                <h3>Chi Tiết Hóa Đơn</h3>
+<body>
+    <div class="container py-5">
+        <h1 class="text-center text-primary mb-4">🧾 Hóa Đơn Thời Gian Thực</h1>
+        <div class="card p-4">
+            <div id="items-list">
+                {% for item in receipt["items"] %}
+                    <div class="item-row">
+                        <div class="item-detail">
+                            <div class="item-name">{{ item.name }}</div>
+                            <small>Đơn giá: {{ item.price }} VND &nbsp; | &nbsp; Số lượng: {{ item.quantity }}</small>
+                        </div>
+                        <div class="item-total">{{ item.price * item.quantity }} VND</div>
+                    </div>
+                {% endfor %}
             </div>
-            <div class="card-body">
-                <ul class="list-group" id="items-list">
-                    {% for item in receipt.items %}
-                    <li class="list-group-item">
-                        <strong>{{ item.name }}</strong> - {{ item.quantity }} x {{ item.price }} VND
-                    </li>
-                    {% endfor %}
-                </ul>
-                <hr>
-                <h4>Tổng Tiền: <strong>{{ receipt.total }} VND</strong></h4>
+            <div class="total-row">
+                TỔNG: <span id="total">{{ receipt.total }} VND</span>
+            </div>
+            <div class="text-end mt-4">
+                <a href="/download_pdf" class="btn btn-success btn-lg">📥 Tải PDF</a>
             </div>
         </div>
-
-        <a href="/" class="btn btn-primary mt-4">Cập Nhật Hóa Đơn</a>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
     <script>
         function updateReceipt() {
             $.ajax({
                 url: "/update_receipt",
                 method: "GET",
                 success: function(data) {
-                    var itemsList = $("#items-list");
-                    itemsList.empty();
-                    
-                    data.items.forEach(function(item) {
-                        itemsList.append('<li class="list-group-item"><strong>' + item.name + '</strong> - ' + item.quantity + ' x ' + item.price + ' VND</li>');
+                    var list = $("#items-list");
+                    list.empty();
+                    data.items.forEach(item => {
+                        list.append(`
+                            <div class="item-row">
+                                <div class="item-detail">
+                                    <div class="item-name">${item.name}</div>
+                                    <small>Đơn giá: ${item.price} VND &nbsp; | &nbsp; Số lượng: ${item.quantity}</small>
+                                </div>
+                                <div class="item-total">${item.price * item.quantity} VND</div>
+                            </div>
+                        `);
                     });
-
                     $("#total").text(data.total + " VND");
                 }
             });
         }
 
-        setInterval(updateReceipt, 2000);  // Cập nhật mỗi 2 giây
+        setInterval(updateReceipt, 2000);
     </script>
 </body>
 </html>

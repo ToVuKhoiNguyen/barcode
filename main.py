@@ -6,8 +6,9 @@ from pyzbar.pyzbar import decode
 import tkinter as tk
 from tkinter import ttk, simpledialog
 from datetime import datetime
+from PIL import Image, ImageTk
 
-# --- Đọc dữ liệu sản phẩm từ CSV ---
+# ----- Đọc dữ liệu sản phẩm -----
 def load_product_data_from_csv(filename='products.csv'):
     products = {}
     with open(filename, newline='', encoding='utf-8') as csvfile:
@@ -19,19 +20,16 @@ def load_product_data_from_csv(filename='products.csv'):
             products[barcode] = {'name': name, 'price': price}
     return products
 
-# --- Cấu hình ---
-cooldown = 3  # giây chống quét trùng
-
-# --- Biến toàn cục ---
+# ----- Cấu hình -----
+cooldown = 3
 cart = {}
 last_scanned_time = {}
 product_data = load_product_data_from_csv()
 cap = cv2.VideoCapture(0)
 
-# --- Gửi hóa đơn lên web Flask ---
+# ----- Gửi hóa đơn lên web -----
 def send_receipt_to_web():
-    items = []
-    total = 0
+    items, total = [], 0
     for item in cart.values():
         total += item['price'] * item['quantity']
         items.append({
@@ -39,146 +37,131 @@ def send_receipt_to_web():
             "price": item['price'],
             "quantity": item['quantity']
         })
-    payload = {
-        "items": items,
-        "total": total
-    }
     try:
-        requests.post("http://127.0.0.1:5000/update_receipt", json=payload)
-    except Exception as e:
-        print("❌ Không gửi được hóa đơn đến web:", e)
+        requests.post("http://127.0.0.1:5000/update_receipt", json={"items": items, "total": total})
+    except:
+        pass
 
-# --- Giao diện Tkinter ---
+# ----- Cập nhật giao diện -----
 def update_receipt():
     total = 0
-    receipt_text.delete(1.0, tk.END)
-    receipt_text.insert(tk.END, "======== HÓA ĐƠN TẠM THỜI ========\n")
-    receipt_text.insert(tk.END, "{:<25} {:>10} {:>10}\n".format("Tên sản phẩm", "Giá", "Số lượng"))
-    receipt_text.insert(tk.END, "-" * 50 + "\n")
-    
+    for row in tree.get_children():
+        tree.delete(row)
     for item in cart.values():
         line_total = item['price'] * item['quantity']
-        receipt_text.insert(tk.END, "{:<25} {:>10,} {:>10}\n".format(item['name'], item['price'], item['quantity']))
+        tree.insert('', tk.END, values=(
+            f"{item['name']} (x{item['quantity']})",
+            f"{item['price']:,}",
+            item['quantity'],
+            f"{line_total:,}"
+        ))
         total += line_total
-        
-    receipt_text.insert(tk.END, "-" * 50 + "\n")
-    receipt_text.insert(tk.END, "{:<25} {:>10,} VND\n".format("TỔNG TIỀN", total))
-    receipt_text.insert(tk.END, "===================================\n")
+    total_label.config(text=f"Tổng cộng: {total:,} VND")
+    send_receipt_to_web()
 
-def remove_item_from_cart():
-    selected_item = cart_listbox.curselection()
-    if selected_item:
-        name = cart_listbox.get(selected_item).split(" - ")[0]
+def remove_item():
+    selected = tree.selection()
+    if selected:
+        name_raw = tree.item(selected[0])['values'][0]
+        name = name_raw.split(' (x')[0]
         for barcode, item in list(cart.items()):
             if item['name'] == name:
                 del cart[barcode]
                 break
         update_receipt()
-        update_cart_listbox()
-        send_receipt_to_web()
 
-def update_cart_listbox():
-    cart_listbox.delete(0, tk.END)
-    for item in cart.values():
-        cart_listbox.insert(tk.END, f"{item['name']} - {item['quantity']} x {item['price']} VND")
-
-def edit_item_quantity():
-    selected_item = cart_listbox.curselection()
-    if selected_item:
-        name = cart_listbox.get(selected_item).split(" - ")[0]
+def edit_quantity():
+    selected = tree.selection()
+    if selected:
+        name_raw = tree.item(selected[0])['values'][0]
+        name = name_raw.split(' (x')[0]
         for barcode, item in cart.items():
             if item['name'] == name:
-                new_quantity = simpledialog.askinteger("Sửa số lượng", f"Sửa số lượng cho sản phẩm {item['name']}:",
-                                                       minvalue=1, initialvalue=item['quantity'])
-                if new_quantity is not None:
-                    cart[barcode]['quantity'] = new_quantity
+                qty = simpledialog.askinteger("Sửa số lượng", f"Số lượng mới cho {name}:", initialvalue=item['quantity'], minvalue=1)
+                if qty is not None:
+                    cart[barcode]['quantity'] = qty
                     update_receipt()
-                    update_cart_listbox()
-                    send_receipt_to_web()
                 break
-
-# --- Tạo cửa sổ Tkinter ---
-root = tk.Tk()
-root.title("Hóa Đơn Thời Gian Thực")
-root.geometry("500x500")
-
-receipt_text = tk.Text(root, height=15, width=50, wrap=tk.WORD)
-receipt_text.pack(pady=20)
-
-cart_listbox = tk.Listbox(root, width=50, height=10)
-cart_listbox.pack(pady=10)
 
 def save_receipt():
     if cart:
-        current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        filename = f"receipt_{current_time}.txt"
+        now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"receipt_{now}.txt"
         with open(filename, "w", encoding="utf-8") as f:
-            f.write("======== HÓA ĐƠN CUỐI CÙNG ========\n")
+            f.write("======= HÓA ĐƠN =======\n")
             total = 0
-            f.write("{:<25} {:>10} {:>10}\n".format("Tên sản phẩm", "Giá", "Số lượng"))
-            f.write("-" * 50 + "\n")
             for item in cart.values():
                 line_total = item['price'] * item['quantity']
-                f.write("{:<25} {:>10,} {:>10}\n".format(item['name'], item['price'], item['quantity']))
+                f.write(f"{item['name']:<25} {item['price']:>10,} x {item['quantity']:>2} = {line_total:,}\n")
                 total += line_total
-            f.write("-" * 50 + "\n")
-            f.write("{:<25} {:>10,} VND\n".format("TỔNG TIỀN", total))
-            f.write("===================================\n")
-        print(f"📝 Hóa đơn đã được lưu vào file: {filename}")
+            f.write(f"-----------------------------\nTỔNG: {total:,} VND\n")
+        print(f"📝 Hóa đơn đã lưu: {filename}")
 
-save_button = tk.Button(root, text="Lưu Hóa Đơn", command=save_receipt)
-save_button.pack(pady=10)
+# ----- Giao diện Tkinter -----
+root = tk.Tk()
+root.title("Quét mã vạch & Hóa đơn")
+root.geometry("1050x600")
+style = ttk.Style()
+style.configure("Treeview", rowheight=28)
 
-remove_button = tk.Button(root, text="Xóa Sản Phẩm", command=remove_item_from_cart)
-remove_button.pack(pady=10)
+# Left: Camera
+frame_left = ttk.Frame(root)
+frame_left.pack(side=tk.LEFT, padx=10, pady=10)
+video_label = ttk.Label(frame_left)
+video_label.pack()
 
-edit_button = tk.Button(root, text="Sửa Số Lượng", command=edit_item_quantity)
-edit_button.pack(pady=10)
+# Right: Receipt
+frame_right = ttk.Frame(root)
+frame_right.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-# --- Vòng lặp quét barcode ---
-while cap.isOpened():
+columns = ("Tên (xSố lượng)", "Giá", "Số lượng", "Tạm tính")
+tree = ttk.Treeview(frame_right, columns=columns, show='headings', height=15)
+for col in columns:
+    tree.heading(col, text=col)
+    tree.column(col, anchor=tk.CENTER)
+tree.pack(pady=10)
+
+total_label = ttk.Label(frame_right, text="Tổng cộng: 0 VND", font=("Arial", 14, "bold"))
+total_label.pack()
+
+btn_frame = ttk.Frame(frame_right)
+btn_frame.pack(pady=10)
+
+ttk.Button(btn_frame, text="💾 Lưu Hóa Đơn", command=save_receipt).pack(side=tk.LEFT, padx=5)
+ttk.Button(btn_frame, text="🗑️ Xóa Món", command=remove_item).pack(side=tk.LEFT, padx=5)
+ttk.Button(btn_frame, text="✏️ Sửa SL", command=edit_quantity).pack(side=tk.LEFT, padx=5)
+
+# ----- Cập nhật camera -----
+def update_camera():
     ret, frame = cap.read()
-    if not ret:
-        break
+    if ret:
+        for barcode in decode(frame):
+            x, y, w, h = barcode.rect
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            data = barcode.data.decode("utf-8")
+            now = time.time()
+            if now - last_scanned_time.get(data, 0) < cooldown:
+                continue
+            last_scanned_time[data] = now
+            if data in product_data:
+                p = product_data[data]
+                if data not in cart:
+                    cart[data] = {'name': p['name'], 'price': p['price'], 'quantity': 1}
+                else:
+                    cart[data]['quantity'] += 1
+                update_receipt()
+                text = f"{p['name']} - {p['price']} VND"
+                cv2.putText(frame, text, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
 
-    barcodes = decode(frame)
-    for barcode in barcodes:
-        (x, y, w, h) = barcode.rect
-        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(rgb)
+        imgtk = ImageTk.PhotoImage(image=img)
+        video_label.imgtk = imgtk
+        video_label.configure(image=imgtk)
 
-        barcode_data = barcode.data.decode("utf-8")
-        current_time = time.time()
-        last_time = last_scanned_time.get(barcode_data, 0)
+    root.after(10, update_camera)
 
-        if current_time - last_time < cooldown:
-            continue
-        last_scanned_time[barcode_data] = current_time
-
-        if barcode_data in product_data:
-            product = product_data[barcode_data]
-            name = product['name']
-            price = product['price']
-
-            if barcode_data not in cart:
-                cart[barcode_data] = {'name': name, 'price': price, 'quantity': 1}
-            else:
-                cart[barcode_data]['quantity'] += 1
-
-            update_receipt()
-            update_cart_listbox()
-            send_receipt_to_web()
-
-            text = f"{name} - {price} VND"
-            text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
-            text_x = x + (w - text_size[0]) // 2
-            text_y = y - 10 if y > 20 else y + h + 30
-            cv2.putText(frame, text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
-
-    cv2.imshow("Barcode Scanner", frame)
-    key = cv2.waitKey(1) & 0xFF
-    if key == ord('q'):
-        break
-
+update_camera()
+root.mainloop()
 cap.release()
 cv2.destroyAllWindows()
-root.mainloop()
