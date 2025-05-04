@@ -1,20 +1,26 @@
 import sqlite3
 
-# Kết nối tới cơ sở dữ liệu SQLite
-conn = sqlite3.connect('products.db')
-cursor = conn.cursor()
+def create_database():
+    # Tạo kết nối đến cơ sở dữ liệu (nếu chưa có, sẽ tạo mới)
+    conn = sqlite3.connect('products.db') 
+    c = conn.cursor()
 
-# Tạo bảng sản phẩm
-cursor.execute('''
-CREATE TABLE IF NOT EXISTS products (
-    barcode_code TEXT PRIMARY KEY,
-    product_name TEXT,
-    price REAL
-)
-''')
+    # Xóa bảng cũ nếu có
+    c.execute('DROP TABLE IF EXISTS products')
 
-# Commit thay đổi và đóng kết nối
-conn.commit()
-conn.close()
+    # Tạo bảng để lưu trữ sản phẩm
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS products (
+            barcode TEXT PRIMARY KEY,  -- Mã vạch
+            name TEXT NOT NULL,        -- Tên sản phẩm
+            price INTEGER NOT NULL     -- Giá sản phẩm
+        )
+    ''')
 
-print("Cơ sở dữ liệu và bảng sản phẩm đã được tạo thành công.")
+    # Lưu thay đổi và đóng kết nối
+    conn.commit()
+    conn.close()
+
+if __name__ == "__main__":
+    create_database()
+    print("Cơ sở dữ liệu đã được tạo thành công.")

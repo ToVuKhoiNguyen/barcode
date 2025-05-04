@@ -1,25 +1,27 @@
 import csv
 import sqlite3
 
-# Kết nối tới cơ sở dữ liệu SQLite
-conn = sqlite3.connect('products.db')
-cursor = conn.cursor()
+def import_csv_to_db(filename='products.csv'):
+    conn = sqlite3.connect('products.db')
+    c = conn.cursor()
 
-# Mở tệp CSV và đọc dữ liệu
-with open('products.csv', newline='', encoding='utf-8') as file:
-    reader = csv.DictReader(file)
-    for row in reader:
-        barcode_code = row['Barcode Code']
-        product_name = row['Product Name']
-        price = float(row['Price'])  # Chuyển giá thành số thực
-        # Chèn dữ liệu vào bảng sản phẩm
-        cursor.execute('''
-        INSERT INTO products (barcode_code, product_name, price)
-        VALUES (?, ?, ?)
-        ''', (barcode_code, product_name, price))
+    # Mở tệp CSV và đọc dữ liệu
+    with open(filename, newline='', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            barcode = row['Barcode Code'].strip()
+            name = row['Product Name'].strip()
+            price = int(row['Price'])
+            
+            # Chèn hoặc cập nhật dữ liệu vào cơ sở dữ liệu
+            c.execute('''
+                INSERT OR REPLACE INTO products (barcode, name, price) 
+                VALUES (?, ?, ?)
+            ''', (barcode, name, price))
 
-# Lưu thay đổi và đóng kết nối
-conn.commit()
-conn.close()
+    conn.commit()
+    conn.close()
+    print("Dữ liệu đã được nhập vào cơ sở dữ liệu thành công.")
 
-print("Dữ liệu đã được nhập vào cơ sở dữ liệu thành công.")
+if __name__ == "__main__":
+    import_csv_to_db()

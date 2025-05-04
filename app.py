@@ -1,13 +1,16 @@
 from flask import Flask, render_template, request, jsonify, send_file
 from fpdf import FPDF
 import io
+from datetime import datetime
 
 app = Flask(__name__)
 
-# Dữ liệu hóa đơn lưu tạm
+# Dữ liệu hóa đơn tạm thời
 receipt_data = {
+    "store": "IOT CHALLENGE",
     "items": [],
-    "total": 0
+    "total": 0,
+    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 }
 
 @app.route('/')
@@ -22,15 +25,17 @@ def update_receipt():
 def post_update_receipt():
     global receipt_data
     receipt_data = request.json
+    receipt_data["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     return jsonify({"status": "updated"})
 
 @app.route('/download_pdf')
 def download_pdf():
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", size=12)
-
-    pdf.cell(200, 10, txt="HÓA ĐƠN", ln=True, align='C')
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(200, 10, txt=receipt_data["store"], ln=True, align='C')
+    pdf.set_font("Arial", '', 12)
+    pdf.cell(200, 10, txt=f"Thời gian: {receipt_data['timestamp']}", ln=True, align='C')
     pdf.ln(10)
 
     for item in receipt_data["items"]:
@@ -46,7 +51,8 @@ def download_pdf():
     pdf.output(buffer)
     buffer.seek(0)
 
-    return send_file(buffer, as_attachment=True, download_name="hoadon.pdf", mimetype='application/pdf')
+    filename = f"hoadon_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    return send_file(buffer, as_attachment=True, download_name=filename, mimetype='application/pdf')
 
 if __name__ == '__main__':
     app.run(debug=True)
