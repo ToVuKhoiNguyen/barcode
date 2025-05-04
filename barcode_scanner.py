@@ -23,7 +23,7 @@ while cap.isOpened():
         for barcode in barcodes:
             # Lấy dữ liệu mã vạch và giải mã
             barcode_data = barcode.data.decode("utf-8")
-            print(f"Mã vạch: {barcode_data}")  # In ra mã vạch đã giải mã
+            print(f"Mã vạch: {barcode_data}")  # In ra mã vạch đã giải mã vào console
 
             # Vẽ hình chữ nhật quanh mã vạch
             (x, y, w, h) = barcode.rect
