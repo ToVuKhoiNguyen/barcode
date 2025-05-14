@@ -9,24 +9,27 @@ from pyzbar.pyzbar import decode
 from PIL import Image, ImageTk
 
 # Đọc dữ liệu từ SQLite
-def load_product_data_from_db(db_file='products.db'):
+# Đọc dữ liệu từ CSV
+import csv
+
+def load_product_data_from_csv(csv_file='products.csv'):
     products = {}
-    conn = sqlite3.connect(db_file)
-    c = conn.cursor()
     try:
-        c.execute("SELECT barcode, name, price FROM products")
-        for barcode, name, price in c.fetchall():
-            products[barcode.strip()] = {'name': name.strip(), 'price': int(price)}
-    except sqlite3.Error as e:
-        print("❌ Lỗi khi đọc DB:", e)
-    finally:
-        conn.close()
+        with open(csv_file, newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                barcode = row['Barcode Code'].strip()
+                name = row['Product Name'].strip()
+                price = int(row['Price'])
+                products[barcode] = {'name': name, 'price': price}
+    except Exception as e:
+        print(f"❌ Lỗi khi đọc file CSV: {e}")
     return products
 
 cooldown = 3
 cart = {}
 last_scanned_time = {}
-product_data = load_product_data_from_db()
+product_data = load_product_data_from_csv()
 cap = cv2.VideoCapture(0)
 
 # Gửi hóa đơn về web
